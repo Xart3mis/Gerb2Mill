@@ -59,6 +59,7 @@ img_profile = None
 
 print("#Converting pdf files to image")
 page_top = convert_from_path("out/top.pdf", poppler_path="poppler/")
+page_pads = convert_from_path("out/pads.pdf", poppler_path="poppler/")
 page_drills = convert_from_path("out/drills.pdf", poppler_path="poppler/")
 page_profile = convert_from_path("out/profile.pdf", poppler_path="poppler/")
 
@@ -79,14 +80,22 @@ with BytesIO() as f:
     img_profile = cv2.cvtColor(
         numpy.array(Image.open(f).convert("RGB")), cv2.COLOR_RGB2BGR
     )
+with BytesIO() as f:
+    page_pads[0].save(f, format="jpeg")
+    f.seek(0)
+    img_pads = cv2.cvtColor(
+        numpy.array(Image.open(f).convert("RGB")), cv2.COLOR_RGB2BGR
+    )
 print("#DONE")
 
 print("#image processing n stuff")
 img_top = cv2.cvtColor(img_top, cv2.COLOR_BGR2GRAY)
+img_pads = cv2.cvtColor(img_pads, cv2.COLOR_BGR2GRAY)
 img_drills = cv2.cvtColor(img_drills, cv2.COLOR_BGR2GRAY)
 img_profile = cv2.cvtColor(img_profile, cv2.COLOR_BGR2GRAY)
 
 _, img_top = cv2.threshold(img_top, 128, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+_, img_pads = cv2.threshold(img_pads, 128, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
 _, img_drills = cv2.threshold(
     img_drills, 128, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU
 )
@@ -95,19 +104,22 @@ _, img_profile = cv2.threshold(
 )
 
 contours_profile, _ = cv2.findContours(
-    img_top, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+    img_profile, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
 )
 
-mask = numpy.zeros(img_top.shape, img_top.dtype)
+mask = numpy.zeros(img_profile.shape, img_profile.dtype)
 mask = cv2.drawContours(mask, contours_profile, -1, (255, 255, 255), -1)
 
 mask_eroded = cv2.erode(mask.copy(), numpy.ones((10, 10), numpy.uint8), iterations=2)  # type: ignore
 
 img_top = cv2.bitwise_and(img_top, img_top, mask=mask_eroded)
+img_pads = cv2.bitwise_and(img_pads, img_pads, mask=mask_eroded)
+img_pads = cv2.bitwise_not(img_pads)
 img_drills = cv2.bitwise_and(img_drills, img_drills, mask=mask_eroded)
 img_drills = cv2.bitwise_not(img_drills)
 
 cv2.imwrite("top.png", img_top)
 cv2.imwrite("drills.png", img_drills)
 cv2.imwrite("profile.png", mask)
+cv2.imwrite("solder_mask.png", img_pads)
 print("#finished")
