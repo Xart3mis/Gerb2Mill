@@ -9,10 +9,11 @@ from pdf2image.pdf2image import convert_from_path
 PROFILE = ["files/profile/" + file for file in os.listdir("files/profile")]
 DRILLS = ["files/drills/" + file for file in os.listdir("files/drills")]
 TOP = ["files/top/" + file for file in os.listdir("files/top")]
+PADS = ["files/pads/" + file for file in os.listdir("files/pads")]
 
 print("# Generate top layers pdf")
 p = Popen(
-    f".\\gerbv\\gerbv.exe -b#ffffff -D1000 {' -f#000000 '*(len(PROFILE)+len(TOP))} {' '.join(PROFILE)} {' '.join(TOP)} -xpdf -o{os.path.abspath('out/top.pdf')}",
+    f".\\gerbv\\gerbv.exe -b#ffffff -D1000 {' -f#000000 '*(len(PROFILE)+len(TOP)+len(PADS))} {' '.join(PROFILE)} {' '.join(TOP)} {' '.join(PADS)} -xpdf -o{os.path.abspath('out/top.pdf')}",
     stdin=PIPE,
     shell=True,
     stdout=DEVNULL,
@@ -38,10 +39,21 @@ Popen(
     stdout=DEVNULL,
     stderr=DEVNULL,
 )
+
+print("# Generate pads pdf")
+Popen(
+    f".\\gerbv\\gerbv.exe -b#ffffff -D1000 {' -f#000000 '*(len(PROFILE) + len(PADS))} {' '.join(PROFILE)} {' '.join(PADS)} -xpdf -o{os.path.abspath('out/pads.pdf')}",
+    stdin=PIPE,
+    shell=True,
+    stdout=DEVNULL,
+    stderr=DEVNULL,
+)
 print("#DONE")
 
 p.communicate(input=b"\n")
 
+img_top = None
+img_pads = None
 img_drills = None
 img_profile = None
 
@@ -71,7 +83,6 @@ print("#DONE")
 
 print("#image processing n stuff")
 img_top = cv2.cvtColor(img_top, cv2.COLOR_BGR2GRAY)
-top_shape = img_top.shape
 img_drills = cv2.cvtColor(img_drills, cv2.COLOR_BGR2GRAY)
 img_profile = cv2.cvtColor(img_profile, cv2.COLOR_BGR2GRAY)
 
