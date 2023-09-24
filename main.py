@@ -1,10 +1,11 @@
 import os
 import cv2
+import fitz
 import numpy
-from io import BytesIO
-from PIL import Image
+from PIL import Image, PngImagePlugin
 from subprocess import Popen, PIPE, DEVNULL
-from pdf2image.pdf2image import convert_from_path
+
+ITERATIONS = 1
 
 PROFILE = ["files/profile/" + file for file in os.listdir("files/profile")]
 DRILLS = ["files/drills/" + file for file in os.listdir("files/drills")]
@@ -13,7 +14,7 @@ PADS = ["files/pads/" + file for file in os.listdir("files/pads")]
 
 print("# Generate top layers pdf")
 p = Popen(
-    f".\\gerbv\\gerbv.exe -b#ffffff -D1000 {' -f#000000 '*(len(PROFILE)+len(TOP)+len(PADS))} {' '.join(PROFILE)} {' '.join(TOP)} {' '.join(PADS)} -xpdf -o{os.path.abspath('out/top.pdf')}",
+    f".\\gerbv\\gerbv.exe -b#ffffff {' -f#000000 '*(len(PROFILE)+len(TOP)+len(PADS))} {' '.join(PROFILE)} {' '.join(TOP)} {' '.join(PADS)} -xpdf -o{os.path.abspath('out/top.pdf')}",
     stdin=PIPE,
     shell=True,
     stdout=DEVNULL,
@@ -23,7 +24,7 @@ print("#DONE")
 
 print("# Generate drills layer pdf")
 Popen(
-    f".\\gerbv\\gerbv.exe -b#ffffff -D1000 {' -f#000000 '*(len(PROFILE)+len(DRILLS))} {' '.join(PROFILE)} {' '.join(DRILLS)} -xpdf -o{os.path.abspath('out/drills.pdf')}",
+    f".\\gerbv\\gerbv.exe -b#ffffff {' -f#000000 '*(len(PROFILE)+len(DRILLS))} {' '.join(PROFILE)} {' '.join(DRILLS)} -xpdf -o{os.path.abspath('out/drills.pdf')}",
     stdin=PIPE,
     shell=True,
     stdout=DEVNULL,
@@ -33,16 +34,17 @@ print("#DONE")
 
 print("# Generate profile layer pdf")
 Popen(
-    f".\\gerbv\\gerbv.exe -b#ffffff -D1000 {' -f#000000 '*(len(PROFILE))} {' '.join(PROFILE)} -xpdf -o{os.path.abspath('out/profile.pdf')}",
+    f".\\gerbv\\gerbv.exe -b#ffffff {' -f#000000 '*(len(PROFILE))} {' '.join(PROFILE)} -xpdf -o{os.path.abspath('out/profile.pdf')}",
     stdin=PIPE,
     shell=True,
     stdout=DEVNULL,
     stderr=DEVNULL,
 )
+print("#DONE")
 
 print("# Generate pads pdf")
 Popen(
-    f".\\gerbv\\gerbv.exe -b#ffffff -D1000 {' -f#000000 '*(len(PROFILE) + len(PADS))} {' '.join(PROFILE)} {' '.join(PADS)} -xpdf -o{os.path.abspath('out/pads.pdf')}",
+    f".\\gerbv\\gerbv.exe -b#ffffff {' -f#000000 '*(len(PROFILE) + len(PADS))} {' '.join(PROFILE)} {' '.join(PADS)} -xpdf -o{os.path.abspath('out/pads.pdf')}",
     stdin=PIPE,
     shell=True,
     stdout=DEVNULL,
@@ -58,34 +60,50 @@ img_drills = None
 img_profile = None
 
 print("#Converting pdf files to image")
-page_top = convert_from_path("out/top.pdf", poppler_path="poppler/")
-page_pads = convert_from_path("out/pads.pdf", poppler_path="poppler/")
-page_drills = convert_from_path("out/drills.pdf", poppler_path="poppler/")
-page_profile = convert_from_path("out/profile.pdf", poppler_path="poppler/")
+page_top = fitz.open("out/top.pdf")
+page_top = page_top.load_page(0).get_pixmap(dpi=1000)
+page_pads = fitz.open("out/pads.pdf")
+page_pads = page_pads.load_page(0).get_pixmap(dpi=1000)
+page_drills = fitz.open("out/drills.pdf")
+page_drills = page_drills.load_page(0).get_pixmap(dpi=1000)
+page_profile = fitz.open("out/profile.pdf")
+page_profile = page_profile.load_page(0).get_pixmap(dpi=1000)
 
+print(page_top)
 
-with BytesIO() as f:
-    page_top[0].save(f, format="jpeg")
-    f.seek(0)
-    img_top = cv2.cvtColor(numpy.array(Image.open(f).convert("RGB")), cv2.COLOR_RGB2BGR)
-with BytesIO() as f:
-    page_drills[0].save(f, format="jpeg")
-    f.seek(0)
-    img_drills = cv2.cvtColor(
-        numpy.array(Image.open(f).convert("RGB")), cv2.COLOR_RGB2BGR
-    )
-with BytesIO() as f:
-    page_profile[0].save(f, format="jpeg")
-    f.seek(0)
-    img_profile = cv2.cvtColor(
-        numpy.array(Image.open(f).convert("RGB")), cv2.COLOR_RGB2BGR
-    )
-with BytesIO() as f:
-    page_pads[0].save(f, format="jpeg")
-    f.seek(0)
-    img_pads = cv2.cvtColor(
-        numpy.array(Image.open(f).convert("RGB")), cv2.COLOR_RGB2BGR
-    )
+img_top = cv2.cvtColor(
+    numpy.array(
+        Image.frombytes(
+            "RGB", [page_top.width, page_top.height], page_top.samples
+        ).convert("RGB")
+    ),
+    cv2.COLOR_RGB2BGR,
+)
+img_pads = cv2.cvtColor(
+    numpy.array(
+        Image.frombytes(
+            "RGB", [page_pads.width, page_pads.height], page_pads.samples
+        ).convert("RGB")
+    ),
+    cv2.COLOR_RGB2BGR,
+)
+img_drills = cv2.cvtColor(
+    numpy.array(
+        Image.frombytes(
+            "RGB", [page_drills.width, page_drills.height], page_drills.samples
+        ).convert("RGB")
+    ),
+    cv2.COLOR_RGB2BGR,
+)
+img_profile = cv2.cvtColor(
+    numpy.array(
+        Image.frombytes(
+            "RGB", [page_profile.width, page_profile.height], page_profile.samples
+        ).convert("RGB")
+    ),
+    cv2.COLOR_RGB2BGR,
+)
+
 print("#DONE")
 
 print("#image processing n stuff")
@@ -110,7 +128,7 @@ contours_profile, _ = cv2.findContours(
 mask = numpy.zeros(img_profile.shape, img_profile.dtype)
 mask = cv2.drawContours(mask, contours_profile, -1, (255, 255, 255), -1)
 
-mask_eroded = cv2.erode(mask.copy(), numpy.ones((10, 10), numpy.uint8), iterations=2)  # type: ignore
+mask_eroded = cv2.erode(mask.copy(), numpy.ones((5, 5), numpy.uint8), iterations=ITERATIONS)  # type: ignore
 
 img_top = cv2.bitwise_and(img_top, img_top, mask=mask_eroded)
 img_pads = cv2.bitwise_and(img_pads, img_pads, mask=mask_eroded)
@@ -118,8 +136,21 @@ img_pads = cv2.bitwise_not(img_pads)
 img_drills = cv2.bitwise_and(img_drills, img_drills, mask=mask_eroded)
 img_drills = cv2.bitwise_not(img_drills)
 
-cv2.imwrite("top.png", img_top)
-cv2.imwrite("drills.png", img_drills)
-cv2.imwrite("profile.png", mask)
-cv2.imwrite("solder_mask.png", img_pads)
+Image.fromarray(cv2.cvtColor(img_top, cv2.COLOR_BGR2RGB)).save(
+    "top.png",
+    dpi=(1000, 1000),
+)
+Image.fromarray(cv2.cvtColor(img_drills, cv2.COLOR_BGR2RGB)).save(
+    "drills.png",
+    dpi=(1000, 1000),
+)
+Image.fromarray(cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)).save(
+    "profile.png",
+    dpi=(1000, 1000),
+)
+Image.fromarray(cv2.cvtColor(img_pads, cv2.COLOR_BGR2RGB)).save(
+    "solder_mask.png",
+    dpi=(1000, 1000),
+)
+
 print("#finished")
